@@ -1,0 +1,16 @@
+[
+{
+  "modid": "extrabedrock",
+  "name": "Extra Bedrock",
+  "description": "Provides additional bedrock-like blocks for worldgen",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["Henry Loenwind"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
