@@ -20,6 +20,7 @@ public class BedLavaStateMapper extends StateMapperBase {
   @SubscribeEvent
   public static void onModelRegistryEvent(ModelRegistryEvent event) {
     ModelLoader.setCustomStateMapper(ExtraBedrockMod.blockBedLava, new BedLavaStateMapper());
+    ModelLoader.setCustomStateMapper(ExtraBedrockMod.blockBedWater, new BedLavaStateMapper());
   }
 
   @SuppressWarnings("null")

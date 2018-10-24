@@ -38,18 +38,21 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 @EventBusSubscriber(modid = ExtraBedrockMod.MODID)
-public class BlockBedLava extends Block {
+public class BlockBedFluid extends Block {
 
-  public static BlockBedLava create() {
-    BlockBedLava result = new BlockBedLava("bedlava");
-    return result;
+  public static BlockBedFluid createLava() {
+    return new BlockBedFluid("bedlava", Material.LAVA);
+  }
+
+  public static BlockBedFluid createWater() {
+    return new BlockBedFluid("bedwater", Material.WATER);
   }
 
   public enum Variant implements IStringSerializable {
-    LAVA,
-    SOLID_LAVA,
-    SOLID_LAVA_TOP,
-    SOLID_LAVA_BOTTOM;
+    NORMAL,
+    SOLID,
+    SOLID_TOP,
+    SOLID_BOTTOM;
 
     @SuppressWarnings("null")
     @Override
@@ -62,15 +65,23 @@ public class BlockBedLava extends Block {
 
   @Nonnull
   protected final String name;
+  @Nonnull
+  protected final Material material;
 
   @SuppressWarnings("null")
-  public BlockBedLava(@Nonnull String name) {
-    super(Material.LAVA);
+  protected BlockBedFluid(@Nonnull String name, @Nonnull Material material) {
+    super(material);
     this.name = name;
+    this.material = material;
+    dummy = new Dummy(material == Material.LAVA ? FluidRegistry.LAVA : FluidRegistry.WATER);
     annotationDerp();
     setUnlocalizedName(name);
     setRegistryName(name);
-    setLightLevel(1f);
+    if (material == Material.LAVA) {
+      setLightLevel(1f);
+    } else {
+      setLightOpacity(3);
+    }
     setBlockUnbreakable();
     setResistance(6000000.0F);
     setHardness(-1.0F);
@@ -126,14 +137,14 @@ public class BlockBedLava extends Block {
   @Nullable
   public AxisAlignedBB getCollisionBoundingBox(@Nonnull IBlockState state, @Nonnull IBlockAccess worldIn, @Nonnull BlockPos pos) {
     switch (state.getValue(VARIANT)) {
-    case SOLID_LAVA:
+    case SOLID:
       return FULL_BLOCK_AABB;
-    case SOLID_LAVA_BOTTOM:
+    case SOLID_BOTTOM:
       return AABB_BOTTOM;
-    case SOLID_LAVA_TOP:
+    case SOLID_TOP:
       return AABB_TOP;
     default:
-    case LAVA:
+    case NORMAL:
       return NULL_AABB;
     }
   }
@@ -146,13 +157,13 @@ public class BlockBedLava extends Block {
   @Override
   @Nullable
   public PathNodeType getAiPathNodeType(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos) {
-    return PathNodeType.LAVA;
+    return material == Material.LAVA ? PathNodeType.LAVA : PathNodeType.WATER;
   }
 
   @Override
   @SideOnly(Side.CLIENT)
   public @Nonnull BlockRenderLayer getBlockLayer() {
-    return BlockRenderLayer.SOLID;
+    return material == Material.LAVA ? BlockRenderLayer.SOLID : BlockRenderLayer.TRANSLUCENT;
   }
 
   @Override
@@ -171,32 +182,38 @@ public class BlockBedLava extends Block {
 
   @SuppressWarnings("null")
   protected void flowIntoBlock(World world, BlockPos pos) {
-    IBlockState other = world.getBlockState(pos);
-    if (dummy.displaceIfPossible(world, pos) || (other.getBlock() == Blocks.FLOWING_LAVA && other.getValue(BlockDynamicLiquid.LEVEL) > 0)) {
-      world.setBlockState(pos, Blocks.FLOWING_LAVA.getBlockState().getBaseState().withProperty(BlockDynamicLiquid.LEVEL, 0), 3);
+    final IBlockState other = world.getBlockState(pos);
+    final BlockDynamicLiquid vanilla = material == Material.LAVA ? Blocks.FLOWING_LAVA : Blocks.FLOWING_WATER;
+    if (dummy.displaceIfPossible(world, pos) || (other.getBlock() == vanilla && other.getValue(BlockDynamicLiquid.LEVEL) > 0)) {
+      world.setBlockState(pos, vanilla.getBlockState().getBaseState().withProperty(BlockDynamicLiquid.LEVEL, 0), 3);
     }
   }
 
   @Override
   public boolean shouldSideBeRendered(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, @Nonnull EnumFacing side) {
-    return !world.getBlockState(pos.offset(side)).doesSideBlockRendering(world, pos.offset(side), side.getOpposite());
+    final IBlockState other = world.getBlockState(pos.offset(side));
+    if (material != Material.LAVA && (other.getBlock() == this || ((side == EnumFacing.DOWN || side == EnumFacing.UP) && other.getMaterial() == material))) {
+      return false;
+    }
+    return !other.doesSideBlockRendering(world, pos.offset(side), side.getOpposite());
   }
 
   @Override
   public boolean doesSideBlockRendering(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, @Nonnull EnumFacing face) {
-    return true;
+    return material == Material.LAVA;
   }
 
-  private final Dummy dummy = new Dummy();
+  private final @Nonnull Dummy dummy;
 
   final class Dummy extends BlockFluidClassic {
-    Dummy() {
-      super(new Fluid(FluidRegistry.LAVA.getName(), null, null), Material.LAVA);
-      this.density = FluidRegistry.LAVA.getDensity();
-      this.temperature = FluidRegistry.LAVA.getTemperature();
-      this.maxScaledLight = FluidRegistry.LAVA.getLuminosity();
-      this.tickRate = FluidRegistry.LAVA.getViscosity() / 200;
-      this.densityDir = FluidRegistry.LAVA.getDensity() > 0 ? -1 : 1;
+
+    Dummy(@Nonnull Fluid fluid) {
+      super(new Fluid(fluid.getName(), null, null), material);
+      this.density = fluid.getDensity();
+      this.temperature = fluid.getTemperature();
+      this.maxScaledLight = fluid.getLuminosity();
+      this.tickRate = fluid.getViscosity() / 200;
+      this.densityDir = fluid.getDensity() > 0 ? -1 : 1;
     }
 
     @Override
@@ -211,7 +228,7 @@ public class BlockBedLava extends Block {
         return true;
 
       IBlockState state = world.getBlockState(pos);
-      if (state.getBlock() == BlockBedLava.this) {
+      if (state.getBlock() == BlockBedFluid.this) {
         return false;
       }
 
@@ -219,8 +236,8 @@ public class BlockBedLava extends Block {
         return displacements.get(state.getBlock());
       }
 
-      Material material = state.getMaterial();
-      if (material.blocksMovement() || material == Material.WATER || material == Material.LAVA || material == Material.PORTAL) {
+      Material otherMaterial = state.getMaterial();
+      if (otherMaterial.blocksMovement() || otherMaterial == Material.WATER || otherMaterial == Material.LAVA || otherMaterial == Material.PORTAL) {
         return false;
       }
 
@@ -251,7 +268,7 @@ public class BlockBedLava extends Block {
 
   @Override
   public int tickRate(@Nullable World world) {
-    return FluidRegistry.LAVA.getViscosity() / 200;
+    return (material == Material.LAVA ? FluidRegistry.LAVA : FluidRegistry.WATER).getViscosity() / 200;
   }
 
   @Override
@@ -269,7 +286,7 @@ public class BlockBedLava extends Block {
       boolean flag1 = world.getBlockState(blockpos).getBlock().isReplaceable(world, blockpos);
       BlockPos blockpos1 = flag1 && raytraceresult.sideHit == EnumFacing.UP ? blockpos : blockpos.offset(raytraceresult.sideHit);
 
-      if (world.getBlockState(blockpos1).getBlock() instanceof BlockBedLava) {
+      if (world.getBlockState(blockpos1).getBlock() instanceof BlockBedFluid) {
         event.setCanceled(true);
       }
     }
@@ -279,4 +296,16 @@ public class BlockBedLava extends Block {
   public @Nonnull EnumPushReaction getMobilityFlag(@Nonnull IBlockState state) {
     return EnumPushReaction.BLOCK;
   }
+
+  @Override
+  public int getPackedLightmapCoords(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos) {
+    int lightThis = world.getCombinedLight(pos, 0);
+    int lightUp = world.getCombinedLight(pos.up(), 0);
+    int lightThisBase = lightThis & 255;
+    int lightUpBase = lightUp & 255;
+    int lightThisExt = lightThis >> 16 & 255;
+    int lightUpExt = lightUp >> 16 & 255;
+    return (lightThisBase > lightUpBase ? lightThisBase : lightUpBase) | ((lightThisExt > lightUpExt ? lightThisExt : lightUpExt) << 16);
+  }
+
 }

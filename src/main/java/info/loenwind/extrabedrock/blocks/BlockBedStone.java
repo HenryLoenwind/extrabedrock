@@ -27,7 +27,21 @@ public class BlockBedStone extends Block {
   }
 
   public enum Variant implements IStringSerializable {
-    STONE;
+    STONE,
+    STONEBRICK,
+    COBBLESTONE,
+    MOSSY_COBBLESTONE,
+    DIRT,
+    COARSE_DIRT,
+    SAND,
+    SANDSTONE,
+    OBSIDIAN,
+    BRICK,
+    NETHERRACK,
+    NETHER_BRICK,
+    END_STONE
+
+    ;
 
     @SuppressWarnings("null")
     @Override
